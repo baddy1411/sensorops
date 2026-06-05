@@ -1,0 +1,52 @@
+name: Scheduled Pipeline Run
+
+on:
+  schedule:
+    # Run full pipeline daily at 05:00 UTC (before business hours in Germany)
+    - cron: "0 5 * * *"
+  workflow_dispatch:
+    inputs:
+      job:
+        description: "Dagster job to run"
+        required: true
+        default: "sensorops_full_pipeline"
+        type: choice
+        options:
+          - sensorops_full_pipeline
+          - ingest_only
+          - score_and_alert
+
+jobs:
+  run-pipeline:
+    name: Run Dagster pipeline
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+
+      - name: Install dependencies
+        run: pip install -e .
+
+      - name: Run Dagster job
+        run: |
+          dagster job execute \
+            -m pipelines \
+            -j ${{ github.event.inputs.job || 'sensorops_full_pipeline' }}
+        env:
+          DEEPSEEK_API_KEY: ${{ secrets.DEEPSEEK_API_KEY }}
+          MLFLOW_TRACKING_URI: ${{ secrets.MLFLOW_TRACKING_URI }}
+          OPENLINEAGE_URL: ${{ secrets.OPENLINEAGE_URL }}
+          SENSOROPS_CSV_PATH: data/raw/ai4i2020.csv
+
+      - name: Upload audit log artifact
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: audit-log-${{ github.run_id }}
+          path: data/processed/audit.jsonl
+          retention-days: 90

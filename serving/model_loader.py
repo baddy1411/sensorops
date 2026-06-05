@@ -1,0 +1,104 @@
+"""
+Model loader — loads and caches the active anomaly model for serving.
+
+Loading strategy (in priority order):
+  1. SENSOROPS_MODEL_PATH env var  → load from local joblib file
+  2. MLFLOW_MODEL_URI env var       → load from MLflow (e.g. models:/sensorops-isolation-forest/Production)
+  3. Fallback                       → train a fresh IsolationForest on the AI4I CSV at startup
+
+The loaded model is cached as a module-level singleton so FastAPI workers
+share it without re-loading on every request.
+"""
+
+from __future__ import annotations
+
+import os
+import threading
+from pathlib import Path
+from typing import Any
+
+import numpy as np
+
+from models.base import BaseAnomalyModel
+from models.isolation_forest import IsolationForestModel
+
+_lock = threading.Lock()
+_model: BaseAnomalyModel | None = None
+
+
+def get_model() -> BaseAnomalyModel:
+    """Return the cached model, loading it on first call (thread-safe)."""
+    global _model
+    if _model is not None:
+        return _model
+    with _lock:
+        if _model is not None:
+            return _model
+        _model = _load_model()
+    return _model
+
+
+def reload_model() -> BaseAnomalyModel:
+    """Force a reload (useful after a new model is promoted to Production)."""
+    global _model
+    with _lock:
+        _model = _load_model()
+    return _model
+
+
+def _load_model() -> BaseAnomalyModel:
+    # 1. Local file
+    local_path = os.getenv("SENSOROPS_MODEL_PATH", "")
+    if local_path and Path(local_path).exists():
+        print(f"[loader] loading model from file: {local_path}")
+        return IsolationForestModel.load(local_path)
+
+    # 2. MLflow URI
+    mlflow_uri = os.getenv("MLFLOW_MODEL_URI", "")
+    if mlflow_uri:
+        print(f"[loader] loading model from MLflow: {mlflow_uri}")
+        try:
+            import mlflow.sklearn
+            return mlflow.sklearn.load_model(mlflow_uri)
+        except Exception as exc:
+            print(f"[loader] MLflow load failed ({exc}), falling back to default")
+
+    # 3. Fallback: train fresh IF on available data
+    print("[loader] no model found — training default IsolationForest")
+    return _train_fallback_model()
+
+
+def _train_fallback_model() -> IsolationForestModel:
+    """Train a baseline IF on whatever data is available locally."""
+    import asyncio
+    import pandas as pd
+
+    csv_path = os.getenv("SENSOROPS_CSV_PATH", "data/raw/ai4i2020.csv")
+
+    if Path(csv_path).exists():
+        from data.adapter import CsvReplayAdapter, ReplayConfig
+        from pipelines.assets.features import feature_matrix as _feat_fn
+        from pipelines.assets.anomaly_scores import MODEL_FEATURES
+        from dagster import build_asset_context
+
+        adapter = CsvReplayAdapter(csv_path=csv_path, config=ReplayConfig(event_interval_s=0.0))
+
+        async def _collect():
+            events = []
+            async for e in adapter.stream():
+                events.append(e.model_dump())
+                if len(events) >= 2000:
+                    break
+            return events
+
+        rows = asyncio.run(_collect())
+        raw_df = pd.DataFrame(rows)
+        feat_df = _feat_fn(build_asset_context(), raw_df)
+        X = feat_df[MODEL_FEATURES].values
+    else:
+        print("[loader] no CSV found — using random normal data for fallback model")
+        X = np.random.default_rng(42).normal(size=(500, 13))
+
+    model = IsolationForestModel(n_estimators=100, contamination=0.035)
+    model.fit(X)
+    return model

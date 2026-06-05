@@ -1,0 +1,128 @@
+version: "3.9"
+
+# SensorOps — full local stack
+#
+# Services:
+#   serving      — FastAPI inference API           http://localhost:8000
+#   mlflow       — MLflow tracking + registry       http://localhost:5000
+#   dagster      — Dagster orchestration UI         http://localhost:3000
+#   postgres     — Dagster run storage + pgvector   localhost:5432
+#   minio        — S3-compatible artifact store     http://localhost:9000
+#
+# Usage:
+#   docker compose -f infra/docker-compose.yml up
+#   docker compose -f infra/docker-compose.yml up serving mlflow   # minimal
+
+services:
+
+  # ── Postgres (Dagster storage + pgvector for RAG) ───────────────────────
+  postgres:
+    image: pgvector/pgvector:pg16
+    environment:
+      POSTGRES_USER: sensorops
+      POSTGRES_PASSWORD: sensorops
+      POSTGRES_DB: sensorops
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U sensorops"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # ── MinIO (S3-compatible MLflow artifact store) ──────────────────────────
+  minio:
+    image: minio/minio:latest
+    command: server /data --console-address ":9001"
+    environment:
+      MINIO_ROOT_USER: minioadmin
+      MINIO_ROOT_PASSWORD: minioadmin
+    volumes:
+      - minio_data:/data
+    ports:
+      - "9000:9000"
+      - "9001:9001"
+    healthcheck:
+      test: ["CMD", "mc", "ready", "local"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # ── MLflow tracking server ───────────────────────────────────────────────
+  mlflow:
+    image: ghcr.io/mlflow/mlflow:v2.13.0
+    depends_on:
+      postgres:
+        condition: service_healthy
+      minio:
+        condition: service_healthy
+    environment:
+      MLFLOW_S3_ENDPOINT_URL: http://minio:9000
+      AWS_ACCESS_KEY_ID: minioadmin
+      AWS_SECRET_ACCESS_KEY: minioadmin
+    command: >
+      mlflow server
+        --backend-store-uri postgresql://sensorops:sensorops@postgres:5432/sensorops
+        --artifacts-destination s3://mlflow-artifacts/
+        --host 0.0.0.0
+        --port 5000
+    ports:
+      - "5000:5000"
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:5000/health"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+
+  # ── SensorOps FastAPI serving ────────────────────────────────────────────
+  serving:
+    build:
+      context: ..
+      dockerfile: serving/Dockerfile
+    environment:
+      MLFLOW_TRACKING_URI: http://mlflow:5000
+      MLFLOW_MODEL_URI: models:/sensorops-isolation-forest/Production
+      MLFLOW_S3_ENDPOINT_URL: http://minio:9000
+      AWS_ACCESS_KEY_ID: minioadmin
+      AWS_SECRET_ACCESS_KEY: minioadmin
+      SENSOROPS_CSV_PATH: data/raw/ai4i2020.csv
+    volumes:
+      - ../data:/app/data:ro
+    ports:
+      - "8000:8000"
+    depends_on:
+      mlflow:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "python", "-c",
+             "import urllib.request; urllib.request.urlopen('http://localhost:8000/health')"]
+      interval: 30s
+      timeout: 5s
+      start_period: 20s
+      retries: 3
+
+  # ── Dagster orchestration ────────────────────────────────────────────────
+  dagster:
+    image: python:3.11-slim
+    working_dir: /app
+    command: >
+      bash -c "pip install -q dagster dagster-webserver &&
+               dagster dev -h 0.0.0.0 -p 3000"
+    environment:
+      DAGSTER_HOME: /app/.dagster
+      MLFLOW_TRACKING_URI: http://mlflow:5000
+    volumes:
+      - ..:/app
+      - dagster_home:/app/.dagster
+    ports:
+      - "3000:3000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+volumes:
+  postgres_data:
+  minio_data:
+  dagster_home:
