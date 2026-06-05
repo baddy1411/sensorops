@@ -12,7 +12,6 @@ Endpoints:
 from __future__ import annotations
 
 import os
-from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException, status
 from fastapi.responses import StreamingResponse
@@ -145,6 +144,7 @@ def query_stream(
     Streaming variant of /query — returns Server-Sent Events.
     Each event is a text chunk from Claude as it generates.
     """
+
     def _generate():
         try:
             for chunk in engine.query_stream(

@@ -23,10 +23,9 @@ import hashlib
 import json
 import os
 import uuid
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
-
 
 # ---------------------------------------------------------------------------
 # Lightweight OL event builder
@@ -35,7 +34,7 @@ from typing import Any
 
 
 def _now_iso() -> str:
-    return datetime.now(timezone.utc).isoformat()
+    return datetime.now(UTC).isoformat()
 
 
 def _make_run_id() -> str:
@@ -158,6 +157,7 @@ class LineageEmitter:
             return None
         try:
             from openlineage.client import OpenLineageClient
+
             return OpenLineageClient(url=self._url)
         except Exception:
             return None
@@ -236,9 +236,7 @@ class LineageEmitter:
             extra_facets=facets,
         )
 
-    def track_feature_engineering(
-        self, run_id: str, input_rows: int, output_rows: int
-    ) -> None:
+    def track_feature_engineering(self, run_id: str, input_rows: int, output_rows: int) -> None:
         self.emit_complete(
             run_id=run_id,
             job_name="features.feature_matrix",

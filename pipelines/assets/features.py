@@ -68,24 +68,18 @@ def feature_matrix(
 
     # Power ≈ torque [Nm] × angular_velocity [rad/s] → kW
     # ω = rpm × 2π / 60
-    df["power_proxy_kw"] = (
-        df["torque_nm"] * df["rotational_speed_rpm"] * 2 * np.pi / 60 / 1000
-    )
+    df["power_proxy_kw"] = df["torque_nm"] * df["rotational_speed_rpm"] * 2 * np.pi / 60 / 1000
 
     df["vibration_energy"] = df["vibration_ms2"] ** 2
 
     df["wear_ratio"] = df["tool_wear_min"] / 253.0
 
     # ── 2. Rolling statistics ────────────────────────────────────────────────
-    df["vibration_rolling_mean"] = (
-        df["vibration_ms2"].rolling(ROLLING_WINDOW, min_periods=1).mean()
-    )
+    df["vibration_rolling_mean"] = df["vibration_ms2"].rolling(ROLLING_WINDOW, min_periods=1).mean()
     df["vibration_rolling_std"] = (
         df["vibration_ms2"].rolling(ROLLING_WINDOW, min_periods=1).std().fillna(0.0)
     )
-    df["power_rolling_mean"] = (
-        df["power_proxy_kw"].rolling(ROLLING_WINDOW, min_periods=1).mean()
-    )
+    df["power_rolling_mean"] = df["power_proxy_kw"].rolling(ROLLING_WINDOW, min_periods=1).mean()
 
     # ── 3. Normalise numeric columns ─────────────────────────────────────────
     all_numeric = NUMERIC_COLS + [

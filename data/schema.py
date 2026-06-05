@@ -12,7 +12,6 @@ from typing import Literal
 
 from pydantic import BaseModel, Field, field_validator
 
-
 # Failure subtypes from AI4I 2020 dataset
 FailureType = Literal["TWF", "HDF", "PWF", "OSF", "RNF", "NONE"]
 
@@ -32,8 +31,12 @@ class SensorEvent(BaseModel):
 
     # Core AI4I features
     air_temperature_k: float = Field(..., ge=295.0, le=305.0, description="Air temperature [K]")
-    process_temperature_k: float = Field(..., ge=305.0, le=315.0, description="Process temperature [K]")
-    rotational_speed_rpm: float = Field(..., ge=1168.0, le=2886.0, description="Rotational speed [rpm]")
+    process_temperature_k: float = Field(
+        ..., ge=305.0, le=315.0, description="Process temperature [K]"
+    )
+    rotational_speed_rpm: float = Field(
+        ..., ge=1168.0, le=2886.0, description="Rotational speed [rpm]"
+    )
     torque_nm: float = Field(..., ge=3.8, le=76.6, description="Torque [Nm]")
     tool_wear_min: float = Field(..., ge=0.0, le=253.0, description="Cumulative tool wear [min]")
 

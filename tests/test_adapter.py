@@ -7,20 +7,15 @@ so they run fully offline in CI.
 
 from __future__ import annotations
 
-import csv
-import io
-import math
-import textwrap
-from datetime import datetime, timezone
+import random
+from datetime import UTC, datetime
 from pathlib import Path
 
 import pytest
 
-from data.vibration import generate_vibration
+from data.adapter import CsvReplayAdapter, ReplayConfig
 from data.schema import SensorEvent
-from data.adapter import CsvReplayAdapter, ReplayConfig, _row_to_event
-import random
-
+from data.vibration import generate_vibration
 
 # ---------------------------------------------------------------------------
 # Fixtures
@@ -83,13 +78,27 @@ class TestVibrationGenerator:
         rng_fail = random.Random(42)
 
         normal = [
-            abs(generate_vibration(rotational_speed_rpm=1500, tool_wear_min=200,
-                                   machine_failure=False, t=float(i) * 0.01, rng=rng_ok))
+            abs(
+                generate_vibration(
+                    rotational_speed_rpm=1500,
+                    tool_wear_min=200,
+                    machine_failure=False,
+                    t=float(i) * 0.01,
+                    rng=rng_ok,
+                )
+            )
             for i in range(200)
         ]
         failed = [
-            abs(generate_vibration(rotational_speed_rpm=1500, tool_wear_min=200,
-                                   machine_failure=True, t=float(i) * 0.01, rng=rng_fail))
+            abs(
+                generate_vibration(
+                    rotational_speed_rpm=1500,
+                    tool_wear_min=200,
+                    machine_failure=True,
+                    t=float(i) * 0.01,
+                    rng=rng_fail,
+                )
+            )
             for i in range(200)
         ]
         assert sum(failed) / len(failed) > sum(normal) / len(normal)
@@ -97,10 +106,12 @@ class TestVibrationGenerator:
     def test_reproducible_with_seed(self):
         rng1 = random.Random(99)
         rng2 = random.Random(99)
-        v1 = generate_vibration(rotational_speed_rpm=1800, tool_wear_min=30,
-                                 machine_failure=False, t=1.23, rng=rng1)
-        v2 = generate_vibration(rotational_speed_rpm=1800, tool_wear_min=30,
-                                 machine_failure=False, t=1.23, rng=rng2)
+        v1 = generate_vibration(
+            rotational_speed_rpm=1800, tool_wear_min=30, machine_failure=False, t=1.23, rng=rng1
+        )
+        v2 = generate_vibration(
+            rotational_speed_rpm=1800, tool_wear_min=30, machine_failure=False, t=1.23, rng=rng2
+        )
         assert v1 == v2
 
 
@@ -114,7 +125,7 @@ class TestSensorEventSchema:
         event = SensorEvent(
             event_id="abc-123",
             machine_id="M14860",
-            timestamp=datetime.now(timezone.utc),
+            timestamp=datetime.now(UTC),
             air_temperature_k=298.1,
             process_temperature_k=308.6,
             rotational_speed_rpm=1551.0,
@@ -132,7 +143,7 @@ class TestSensorEventSchema:
             SensorEvent(
                 event_id="x",
                 machine_id="X",
-                timestamp=datetime.now(timezone.utc),
+                timestamp=datetime.now(UTC),
                 air_temperature_k=300.0,
                 process_temperature_k=299.0,  # below air — invalid
                 rotational_speed_rpm=1500.0,
@@ -148,7 +159,7 @@ class TestSensorEventSchema:
         event = SensorEvent(
             event_id="round-trip",
             machine_id="M1",
-            timestamp=datetime(2024, 1, 1, tzinfo=timezone.utc),
+            timestamp=datetime(2024, 1, 1, tzinfo=UTC),
             air_temperature_k=298.0,
             process_temperature_k=308.0,
             rotational_speed_rpm=1500.0,

@@ -1,12 +1,17 @@
 import matplotlib
+
 matplotlib.use('Agg')
+import os
+import sys
+
 import matplotlib.pyplot as plt
 import numpy as np
-import sys, os
+
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
 
-from data.vibration import generate_vibration
 import random
+
+from data.vibration import generate_vibration
 
 os.makedirs('docs/images', exist_ok=True)
 

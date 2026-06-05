@@ -7,11 +7,11 @@ It registers all assets, resources, jobs, schedules, and sensors.
 
 from __future__ import annotations
 
-from dagster import Definitions, load_assets_from_modules
+from dagster import Definitions
 
-from pipelines.assets import raw_events, feature_matrix, anomaly_scores, alerts, model_comparison
-from pipelines.jobs import sensorops_full_pipeline, ingest_only, score_and_alert
 from lineage.dagster_resource import LineageResource
+from pipelines.assets import alerts, anomaly_scores, feature_matrix, model_comparison, raw_events
+from pipelines.jobs import ingest_only, score_and_alert, sensorops_full_pipeline
 from pipelines.resources import AlertSinkResource, CsvDatasetResource, MlflowResource
 from pipelines.schedules import daily_pipeline_schedule, hourly_pipeline_schedule
 from pipelines.sensors import new_csv_sensor

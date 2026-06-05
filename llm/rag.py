@@ -21,7 +21,6 @@ from __future__ import annotations
 import hashlib
 import json
 from pathlib import Path
-from typing import Any
 
 import chromadb
 from chromadb.utils import embedding_functions
@@ -77,7 +76,9 @@ FAILURE_MODE_CARDS = {
             "May indicate bearing spall, foreign object, or sensor fault."
         ),
         "typical_features": "No consistent pattern — broad anomaly across multiple sensors",
-        "recommended_action": "Full machine inspection. Check for foreign objects and loose components.",
+        "recommended_action": (
+            "Full machine inspection. Check for foreign objects and loose components."
+        ),
     },
 }
 
@@ -185,11 +186,13 @@ class RAGStore:
         self._alerts.upsert(
             documents=[text],
             ids=[doc_id],
-            metadatas=[{
-                "machine_id": str(alert.get("machine_id", "")),
-                "severity": str(alert.get("severity", "")),
-                "failure_type": str(alert.get("failure_type", "")),
-            }],
+            metadatas=[
+                {
+                    "machine_id": str(alert.get("machine_id", "")),
+                    "severity": str(alert.get("severity", "")),
+                    "failure_type": str(alert.get("failure_type", "")),
+                }
+            ],
         )
 
     # ------------------------------------------------------------------
@@ -229,12 +232,14 @@ class RAGStore:
                 res["metadatas"][0],
                 res["distances"][0],
             ):
-                results.append({
-                    "text": doc,
-                    "source": meta.get("source", name),
-                    "collection": name,
-                    "distance": dist,
-                })
+                results.append(
+                    {
+                        "text": doc,
+                        "source": meta.get("source", name),
+                        "collection": name,
+                        "distance": dist,
+                    }
+                )
 
         # Sort by distance (lower = more relevant)
         results.sort(key=lambda x: x["distance"])

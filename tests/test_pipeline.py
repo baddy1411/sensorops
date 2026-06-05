@@ -10,20 +10,18 @@ MLflow calls are patched where needed.
 
 from __future__ import annotations
 
-import csv
 from pathlib import Path
 from unittest.mock import MagicMock, patch
 
 import numpy as np
 import pandas as pd
 import pytest
-from dagster import build_asset_context, materialize
+from dagster import build_asset_context
 
+from pipelines.assets.alerts import _severity, alerts
+from pipelines.assets.anomaly_scores import MODEL_FEATURES, anomaly_scores
 from pipelines.assets.features import feature_matrix
-from pipelines.assets.anomaly_scores import anomaly_scores, MODEL_FEATURES
-from pipelines.assets.alerts import alerts, _severity, _build_alert
 from pipelines.resources import AlertSinkResource, MlflowResource
-
 
 # ---------------------------------------------------------------------------
 # Shared fixtures
@@ -35,7 +33,7 @@ AI4I_HEADER = (
     "Torque [Nm],Tool wear [min],Machine failure,TWF,HDF,PWF,OSF,RNF"
 )
 AI4I_ROWS = [
-    f"{i},M{10000+i},M,{298+i*0.1:.1f},{308+i*0.1:.1f},{1500+i*10},{40+i},{i*5},0,0,0,0,0,0"
+    f"{i},M{10000 + i},M,{298 + i * 0.1:.1f},{308 + i * 0.1:.1f},{1500 + i * 10},{40 + i},{i * 5},0,0,0,0,0,0"  # noqa: E501
     for i in range(20)
 ] + ["99,M19999,M,298.5,308.5,1450,75.0,200,1,0,1,0,0,0"]  # one HDF failure
 
@@ -132,6 +130,7 @@ class TestAnomalyScores:
         raw = _make_raw_df(n=n, n_failures=n_failures)
         # simulate feature engineering without writing files
         import numpy as np
+
         df = raw.copy()
         df["temp_delta"] = df["process_temperature_k"] - df["air_temperature_k"]
         df["power_proxy_kw"] = df["torque_nm"] * df["rotational_speed_rpm"] * 2 * np.pi / 60 / 1000
@@ -223,7 +222,9 @@ class TestAlerts:
         raw["anomaly_score"] = [0.85, 0.90] + [0.1] * 18
         raw["is_anomaly"] = [1, 1] + [0] * 18
         out_path = str(tmp_path / "data" / "processed" / "test_alerts.jsonl")
-        ctx = build_asset_context(resources={"alert_sink": AlertSinkResource(sink_type="file", output_path=out_path)})
+        ctx = build_asset_context(
+            resources={"alert_sink": AlertSinkResource(sink_type="file", output_path=out_path)}
+        )
         alerts(ctx, raw)
         assert Path(out_path).exists()
         lines = Path(out_path).read_text().strip().splitlines()

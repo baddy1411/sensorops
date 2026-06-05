@@ -22,7 +22,6 @@ from contextlib import asynccontextmanager
 
 from fastapi import FastAPI, HTTPException, Request, status
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import JSONResponse
 
 from llm.api import router as llm_router
 from serving.feature_pipeline import batch_to_matrix, reading_to_vector

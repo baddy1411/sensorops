@@ -1,8 +1,10 @@
 import matplotlib
+
 matplotlib.use('Agg')
-import matplotlib.pyplot as plt
-import matplotlib.patches as mpatches
 import os
+
+import matplotlib.patches as mpatches
+import matplotlib.pyplot as plt
 
 os.makedirs('docs/images', exist_ok=True)
 

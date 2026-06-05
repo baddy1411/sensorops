@@ -14,7 +14,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from dagster import ConfigurableResource, EnvVar
+from dagster import ConfigurableResource
 from pydantic import Field
 
 

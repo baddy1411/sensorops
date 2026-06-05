@@ -7,7 +7,6 @@ independently from the API/agent logic.
 
 from __future__ import annotations
 
-
 SYSTEM_QUERY_ENGINE = """\
 You are SensorOps Assistant, an expert industrial AI system for predictive maintenance
 on manufacturing equipment (Industrie 4.0 context, German automotive sector).
@@ -56,13 +55,10 @@ def build_query_prompt(
     """Build the user-turn prompt for the NL query engine."""
     ctx_blocks = []
     for i, doc in enumerate(retrieved_context, 1):
-        ctx_blocks.append(
-            f"[Context {i} — {doc['collection']}]\n{doc['text']}"
-        )
+        ctx_blocks.append(f"[Context {i} — {doc['collection']}]\n{doc['text']}")
 
     context_section = (
-        "\n\n".join(ctx_blocks) if ctx_blocks
-        else "No relevant context found in knowledge base."
+        "\n\n".join(ctx_blocks) if ctx_blocks else "No relevant context found in knowledge base."
     )
 
     alert_section = ""
@@ -93,10 +89,7 @@ def build_incident_report_prompt(
     dataset_hash: str,
 ) -> str:
     """Build the prompt that asks Claude to generate a structured incident report."""
-    ctx_text = "\n\n".join(
-        f"[{doc['collection']}] {doc['text']}"
-        for doc in retrieved_context[:4]
-    )
+    ctx_text = "\n\n".join(f"[{doc['collection']}] {doc['text']}" for doc in retrieved_context[:4])
 
     sensor = alert.get("sensor_snapshot", {})
     sensor_str = "\n".join(f"  {k}: {v}" for k, v in sensor.items())
@@ -105,12 +98,12 @@ def build_incident_report_prompt(
 Generate a structured incident report for the following anomaly detection event.
 
 === ALERT DATA ===
-Machine ID:       {alert.get('machine_id', 'UNKNOWN')}
-Timestamp:        {alert.get('timestamp', 'UNKNOWN')}
-Anomaly Score:    {alert.get('anomaly_score', 0):.4f}
-Severity:         {alert.get('severity', 'UNKNOWN')}
-Failure Type:     {alert.get('failure_type', 'UNKNOWN')}
-Top Features:     {', '.join(alert.get('top_features', []))}
+Machine ID:       {alert.get("machine_id", "UNKNOWN")}
+Timestamp:        {alert.get("timestamp", "UNKNOWN")}
+Anomaly Score:    {alert.get("anomaly_score", 0):.4f}
+Severity:         {alert.get("severity", "UNKNOWN")}
+Failure Type:     {alert.get("failure_type", "UNKNOWN")}
+Top Features:     {", ".join(alert.get("top_features", []))}
 
 Sensor Snapshot:
 {sensor_str}
@@ -132,7 +125,8 @@ Return a JSON object with exactly these fields:
   "probable_cause": "<1-2 sentence root cause analysis>",
   "evidence": ["<specific sensor reading or pattern that supports the diagnosis>", ...],
   "recommended_actions": [
-    {{"priority": 1, "action": "<most urgent action>", "timeframe": "<immediate|within 4h|within 24h>"}},
+    {{"priority": 1, "action": "<most urgent action>",  # noqa: E501
+     "timeframe": "<immediate|within 4h|within 24h>"}},
     ...
   ],
   "affected_components": ["<component name>", ...],

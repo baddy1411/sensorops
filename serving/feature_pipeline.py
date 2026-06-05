@@ -11,7 +11,6 @@ vector the trained model expects.
 from __future__ import annotations
 
 import math
-from typing import Any
 
 import numpy as np
 
@@ -29,9 +28,9 @@ FEATURE_ORDER = [
     "power_proxy_kw",
     "vibration_energy",
     "wear_ratio",
-    "vibration_rolling_mean",   # single-step inference: same as vibration_ms2
-    "vibration_rolling_std",    # single-step inference: 0.0
-    "power_rolling_mean",       # single-step inference: same as power_proxy_kw
+    "vibration_rolling_mean",  # single-step inference: same as vibration_ms2
+    "vibration_rolling_std",  # single-step inference: 0.0
+    "power_rolling_mean",  # single-step inference: same as power_proxy_kw
 ]
 
 
@@ -39,7 +38,7 @@ def reading_to_vector(reading: SensorReading) -> np.ndarray:
     """Convert a single SensorReading to a 1-D feature vector."""
     temp_delta = reading.process_temperature_k - reading.air_temperature_k
     power_kw = reading.torque_nm * reading.rotational_speed_rpm * 2 * math.pi / 60 / 1000
-    vib_energy = reading.vibration_ms2 ** 2
+    vib_energy = reading.vibration_ms2**2
     wear_ratio = reading.tool_wear_min / 253.0
 
     return np.array(
@@ -54,9 +53,9 @@ def reading_to_vector(reading: SensorReading) -> np.ndarray:
             power_kw,
             vib_energy,
             wear_ratio,
-            reading.vibration_ms2,   # rolling_mean approximation
-            0.0,                      # rolling_std (no history available)
-            power_kw,                 # power_rolling_mean approximation
+            reading.vibration_ms2,  # rolling_mean approximation
+            0.0,  # rolling_std (no history available)
+            power_kw,  # power_rolling_mean approximation
         ],
         dtype=np.float64,
     ).reshape(1, -1)

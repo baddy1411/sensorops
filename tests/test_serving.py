@@ -17,7 +17,6 @@ from fastapi.testclient import TestClient
 from models.isolation_forest import IsolationForestModel
 from serving.schemas import _score_to_severity
 
-
 # ---------------------------------------------------------------------------
 # Shared fixture — pre-fitted model injected into the loader
 # ---------------------------------------------------------------------------
@@ -34,9 +33,12 @@ def fitted_model() -> IsolationForestModel:
 
 @pytest.fixture(scope="module")
 def client(fitted_model):
-    with patch("serving.model_loader.get_model", return_value=fitted_model), \
-         patch("serving.model_loader._model", fitted_model):
+    with (
+        patch("serving.model_loader.get_model", return_value=fitted_model),
+        patch("serving.model_loader._model", fitted_model),
+    ):
         from serving.app import app
+
         with TestClient(app, raise_server_exceptions=True) as c:
             yield c
 
@@ -108,9 +110,7 @@ class TestPredict:
         assert resp.json()["result"]["machine_id"] == "M14860"
 
     def test_predict_invalid_temp_returns_422(self, client, fitted_model):
-        bad = {
-            "reading": {**VALID_READING["reading"], "air_temperature_k": 999.9}
-        }
+        bad = {"reading": {**VALID_READING["reading"], "air_temperature_k": 999.9}}
         with patch("serving.app.get_model", return_value=fitted_model):
             resp = client.post("/api/v1/predict", json=bad)
         assert resp.status_code == 422
@@ -123,9 +123,7 @@ class TestPredict:
 
 class TestBatchPredict:
     def _batch_body(self, n: int) -> dict:
-        return {
-            "readings": [VALID_READING["reading"]] * n
-        }
+        return {"readings": [VALID_READING["reading"]] * n}
 
     def test_batch_single_item(self, client, fitted_model):
         with patch("serving.app.get_model", return_value=fitted_model):

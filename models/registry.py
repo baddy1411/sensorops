@@ -15,7 +15,6 @@ Promotion policy (Industrie 4.0 context):
 
 from __future__ import annotations
 
-import json
 from typing import Any
 
 import mlflow
@@ -127,10 +126,7 @@ def promote_to_staging(
         stage="Staging",
         archive_existing_versions=False,
     )
-    print(
-        f"[registry] version {target.version} of '{registered_model_name}' "
-        f"promoted to Staging"
-    )
+    print(f"[registry] version {target.version} of '{registered_model_name}' promoted to Staging")
     return True
 
 

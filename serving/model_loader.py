@@ -3,7 +3,8 @@ Model loader — loads and caches the active anomaly model for serving.
 
 Loading strategy (in priority order):
   1. SENSOROPS_MODEL_PATH env var  → load from local joblib file
-  2. MLFLOW_MODEL_URI env var       → load from MLflow (e.g. models:/sensorops-isolation-forest/Production)
+  2. MLFLOW_MODEL_URI env var       → load from MLflow registry
+     (e.g. models:/sensorops-isolation-forest/Production)
   3. Fallback                       → train a fresh IsolationForest on the AI4I CSV at startup
 
 The loaded model is cached as a module-level singleton so FastAPI workers
@@ -15,7 +16,6 @@ from __future__ import annotations
 import os
 import threading
 from pathlib import Path
-from typing import Any
 
 import numpy as np
 
@@ -59,6 +59,7 @@ def _load_model() -> BaseAnomalyModel:
         print(f"[loader] loading model from MLflow: {mlflow_uri}")
         try:
             import mlflow.sklearn
+
             return mlflow.sklearn.load_model(mlflow_uri)
         except Exception as exc:
             print(f"[loader] MLflow load failed ({exc}), falling back to default")
@@ -71,15 +72,17 @@ def _load_model() -> BaseAnomalyModel:
 def _train_fallback_model() -> IsolationForestModel:
     """Train a baseline IF on whatever data is available locally."""
     import asyncio
+
     import pandas as pd
 
     csv_path = os.getenv("SENSOROPS_CSV_PATH", "data/raw/ai4i2020.csv")
 
     if Path(csv_path).exists():
-        from data.adapter import CsvReplayAdapter, ReplayConfig
-        from pipelines.assets.features import feature_matrix as _feat_fn
-        from pipelines.assets.anomaly_scores import MODEL_FEATURES
         from dagster import build_asset_context
+
+        from data.adapter import CsvReplayAdapter, ReplayConfig
+        from pipelines.assets.anomaly_scores import MODEL_FEATURES
+        from pipelines.assets.features import feature_matrix as _feat_fn
 
         adapter = CsvReplayAdapter(csv_path=csv_path, config=ReplayConfig(event_interval_s=0.0))
 

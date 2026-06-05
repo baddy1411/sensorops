@@ -59,8 +59,8 @@ def generate_vibration(
     # Anomaly spike: raised amplitude + phase offset
     spike = 0.0
     if machine_failure:
-        spike = rng.uniform(5.0, 10.0) * wear_factor * math.sin(
-            2 * math.pi * f_base * t + math.pi / 4
+        spike = (
+            rng.uniform(5.0, 10.0) * wear_factor * math.sin(2 * math.pi * f_base * t + math.pi / 4)
         )
 
     return round(base + harmonic + noise + spike, 4)

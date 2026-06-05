@@ -17,19 +17,19 @@ Output            : dict with model names → metrics + winner
 
 from __future__ import annotations
 
-import numpy as np
 import pandas as pd
 from dagster import asset
 
+from models.esn import EchoStateNetworkModel
 from models.isolation_forest import IsolationForestModel
 from models.lstm_autoencoder import LSTMAutoencoder
-from models.esn import EchoStateNetworkModel
-from models.registry import compare_models, log_model_run, promote_to_staging
+from models.registry import log_model_run, promote_to_staging
 from pipelines.assets.anomaly_scores import MODEL_FEATURES
 from pipelines.resources import MlflowResource
 
 # Train/test split ratio (time-ordered — no random shuffle for time-series)
 TRAIN_RATIO = 0.8
+
 
 # Model list to compare
 def _get_models() -> list:
@@ -69,8 +69,7 @@ def model_comparison(
     # Train on clean-ish data — ideally only normal samples.
     # In practice we use all training data; IF/ESN are robust to low contamination.
     context.log.info(
-        f"model_comparison: train={len(X_train)}, test={len(X_test)}, "
-        f"test failures={y_test.sum()}"
+        f"model_comparison: train={len(X_train)}, test={len(X_test)}, test failures={y_test.sum()}"
     )
 
     all_metrics: dict[str, dict] = {}
@@ -102,7 +101,8 @@ def model_comparison(
 
     # Determine winner by ROC-AUC
     scored = {
-        name: m for name, m in all_metrics.items()
+        name: m
+        for name, m in all_metrics.items()
         if "roc_auc" in m and not isinstance(m.get("roc_auc"), str)
     }
 

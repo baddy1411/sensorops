@@ -54,7 +54,7 @@ class IsolationForestModel(BaseAnomalyModel):
         self._score_min: float = 0.0
         self._score_max: float = 1.0
 
-    def fit(self, X: np.ndarray) -> "IsolationForestModel":
+    def fit(self, X: np.ndarray) -> IsolationForestModel:
         self._model.fit(X)
         # Calibrate scaling range on training data
         raw = -self._model.decision_function(X)

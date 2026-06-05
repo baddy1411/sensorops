@@ -25,7 +25,6 @@ from pydantic import BaseModel, Field
 from llm.prompts import SYSTEM_INCIDENT_REPORTER, build_incident_report_prompt
 from llm.rag import RAGStore
 
-
 # ---------------------------------------------------------------------------
 # Typed report schema
 # ---------------------------------------------------------------------------
@@ -138,17 +137,13 @@ class IncidentReporter:
         )
         return response.choices[0].message.content.strip()
 
-    def _parse_report(
-        self, raw_json: str, alert: dict, model_version: str
-    ) -> IncidentReport:
+    def _parse_report(self, raw_json: str, alert: dict, model_version: str) -> IncidentReport:
         """Parse Claude's JSON output into a validated IncidentReport."""
         # Strip accidental markdown fences if present
         text = raw_json
         if text.startswith("```"):
             lines = text.splitlines()
-            text = "\n".join(
-                l for l in lines if not l.startswith("```")
-            ).strip()
+            text = "\n".join(ln for ln in lines if not ln.startswith("```")).strip()
 
         try:
             data = json.loads(text)
@@ -176,6 +171,7 @@ class IncidentReporter:
         csv_path = "data/raw/ai4i2020.csv"
         try:
             import pathlib
+
             content = pathlib.Path(csv_path).read_bytes()
             return hashlib.sha256(content).hexdigest()[:16]
         except FileNotFoundError:

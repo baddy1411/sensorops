@@ -30,9 +30,8 @@ from __future__ import annotations
 
 import hashlib
 import json
-import os
 import threading
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any, Literal
 
@@ -223,9 +222,7 @@ class AuditLogger:
 
                 # Recompute record_hash
                 stored_hash = record.pop("record_hash", "")
-                recomputed = hashlib.sha256(
-                    json.dumps(record, sort_keys=True).encode()
-                ).hexdigest()
+                recomputed = hashlib.sha256(json.dumps(record, sort_keys=True).encode()).hexdigest()
                 if recomputed != stored_hash:
                     errors.append(
                         f"Line {line_no} (seq={record.get('seq')}): "
@@ -267,7 +264,7 @@ class AuditLogger:
             record: dict[str, Any] = {
                 "seq": self._seq,
                 "event_type": event_type,
-                "timestamp": datetime.now(timezone.utc).isoformat(),
+                "timestamp": datetime.now(UTC).isoformat(),
                 "model_name": model_name,
                 "model_version": model_version,
                 "dataset_hash": self._dataset_hash,
@@ -275,9 +272,7 @@ class AuditLogger:
                 "prev_hash": self._prev_hash,
             }
 
-            record_hash = hashlib.sha256(
-                json.dumps(record, sort_keys=True).encode()
-            ).hexdigest()
+            record_hash = hashlib.sha256(json.dumps(record, sort_keys=True).encode()).hexdigest()
             record["record_hash"] = record_hash
 
             with open(self._log_path, "a", encoding="utf-8") as f:

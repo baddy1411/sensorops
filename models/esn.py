@@ -104,6 +104,7 @@ class EchoStateNetworkModel(BaseAnomalyModel):
     def _get_rpy(self):
         try:
             import reservoirpy as rpy
+
             rpy.set_seed(self.seed)
             # verbosity() removed in reservoirpy v0.4 — use set_verbosity if available
             if hasattr(rpy, "set_verbosity"):
@@ -115,7 +116,7 @@ class EchoStateNetworkModel(BaseAnomalyModel):
                 "Install with: pip install reservoirpy"
             ) from e
 
-    def fit(self, X: np.ndarray) -> "EchoStateNetworkModel":
+    def fit(self, X: np.ndarray) -> EchoStateNetworkModel:
         """
         Train ESN as a 1-step-ahead forecaster on normal data.
 
@@ -144,7 +145,7 @@ class EchoStateNetworkModel(BaseAnomalyModel):
             return np.zeros(len(X))
 
         X_in = X[:-1]
-        Y_hat = self._esn.run(X_in)          # shape: (n-1, n_features)
+        Y_hat = self._esn.run(X_in)  # shape: (n-1, n_features)
         Y_true = X[1:]
         errors = np.abs(Y_hat - Y_true).mean(axis=1)  # MAE per step
 

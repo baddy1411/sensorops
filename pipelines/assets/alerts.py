@@ -25,7 +25,6 @@ Output            : alert records  (also written to sink)
 
 from __future__ import annotations
 
-import json
 import uuid
 from pathlib import Path
 from typing import Literal
@@ -185,8 +184,7 @@ def alerts(
     )
 
     context.log.info(
-        f"alerts: {len(alert_records)} alerts emitted "
-        f"| severity breakdown: {severity_counts}"
+        f"alerts: {len(alert_records)} alerts emitted | severity breakdown: {severity_counts}"
     )
 
     return [a.model_dump() for a in alert_records]

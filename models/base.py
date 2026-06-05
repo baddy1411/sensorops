@@ -37,7 +37,7 @@ class BaseAnomalyModel(ABC):
         self._is_fitted = False
 
     @abstractmethod
-    def fit(self, X: np.ndarray) -> "BaseAnomalyModel":
+    def fit(self, X: np.ndarray) -> BaseAnomalyModel:
         """Train the model. X shape: (n_samples, n_features)."""
         ...
 
@@ -61,7 +61,7 @@ class BaseAnomalyModel(ABC):
         joblib.dump(self, path)
 
     @classmethod
-    def load(cls, path: str | Path) -> "BaseAnomalyModel":
+    def load(cls, path: str | Path) -> BaseAnomalyModel:
         return joblib.load(path)
 
     def _require_fitted(self) -> None:

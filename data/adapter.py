@@ -25,14 +25,13 @@ import asyncio
 import csv
 import random
 import uuid
-from dataclasses import dataclass, field
-from datetime import datetime, timezone
+from collections.abc import AsyncIterator
+from dataclasses import dataclass
+from datetime import UTC, datetime
 from pathlib import Path
-from typing import AsyncIterator
 
 from data.schema import FailureType, SensorEvent
 from data.vibration import generate_vibration
-
 
 # ---------------------------------------------------------------------------
 # Configuration dataclasses
@@ -176,7 +175,7 @@ class CsvReplayAdapter:
                 "Download from https://archive.ics.uci.edu/dataset/601 and place in data/raw/"
             )
 
-        start_wall = self.config.start_time or datetime.now(timezone.utc)
+        start_wall = self.config.start_time or datetime.now(UTC)
         t = 0.0
 
         while True:
@@ -190,10 +189,11 @@ class CsvReplayAdapter:
                         start_wall.hour,
                         start_wall.minute,
                         start_wall.second,
-                        tzinfo=timezone.utc,
+                        tzinfo=UTC,
                     )
                     # Advance simulated clock by event_interval_s
                     from datetime import timedelta
+
                     timestamp = start_wall + timedelta(seconds=t)
 
                     try:
@@ -230,8 +230,6 @@ class CsvReplayAdapter:
         except ImportError as e:
             raise ImportError("aiokafka is required for Kafka mode: pip install aiokafka") from e
 
-        import json
-
         producer = AIOKafkaProducer(bootstrap_servers=self.kafka.bootstrap_servers)
         await producer.start()
         published = 0
@@ -256,7 +254,9 @@ if __name__ == "__main__":
 
     parser = argparse.ArgumentParser(description="SensorOps CSV Replay Adapter")
     parser.add_argument("--csv", default="data/raw/ai4i2020.csv", help="Path to AI4I 2020 CSV")
-    parser.add_argument("--interval", type=float, default=0.0, help="Seconds between events (0=max)")
+    parser.add_argument(
+        "--interval", type=float, default=0.0, help="Seconds between events (0=max)"
+    )
     parser.add_argument("--limit", type=int, default=20, help="Number of events to print then exit")
     parser.add_argument("--loop", action="store_true", help="Loop the CSV indefinitely")
     args = parser.parse_args()

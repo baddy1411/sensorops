@@ -74,11 +74,11 @@ class LSTMAutoencoder(BaseAnomalyModel):
     def _get_torch(self):
         try:
             import torch
+
             return torch
         except ImportError as e:
             raise ImportError(
-                "PyTorch is required for LSTMAutoencoder.\n"
-                "Install with: pip install torch"
+                "PyTorch is required for LSTMAutoencoder.\nInstall with: pip install torch"
             ) from e
 
     def _build_model(self, torch):
@@ -88,8 +88,11 @@ class LSTMAutoencoder(BaseAnomalyModel):
             def __init__(self, input_size, hidden_size, num_layers):
                 super().__init__()
                 self.lstm = nn.LSTM(
-                    input_size, hidden_size, num_layers,
-                    batch_first=True, dropout=0.1 if num_layers > 1 else 0.0
+                    input_size,
+                    hidden_size,
+                    num_layers,
+                    batch_first=True,
+                    dropout=0.1 if num_layers > 1 else 0.0,
                 )
 
             def forward(self, x):
@@ -101,8 +104,11 @@ class LSTMAutoencoder(BaseAnomalyModel):
                 super().__init__()
                 self.seq_len = seq_len
                 self.lstm = nn.LSTM(
-                    hidden_size, hidden_size, num_layers,
-                    batch_first=True, dropout=0.1 if num_layers > 1 else 0.0
+                    hidden_size,
+                    hidden_size,
+                    num_layers,
+                    batch_first=True,
+                    dropout=0.1 if num_layers > 1 else 0.0,
                 )
                 self.fc = nn.Linear(hidden_size, input_size)
 
@@ -122,9 +128,7 @@ class LSTMAutoencoder(BaseAnomalyModel):
                 z = self.encoder(x)
                 return self.decoder(z)
 
-        return _LSTMAEModel(
-            self.input_size, self.hidden_size, self.num_layers, self.seq_len
-        )
+        return _LSTMAEModel(self.input_size, self.hidden_size, self.num_layers, self.seq_len)
 
     def _make_sequences(self, X: np.ndarray, torch) -> Any:
         """Slide a window of seq_len over X → tensor (n, seq_len, features)."""
@@ -137,7 +141,7 @@ class LSTMAutoencoder(BaseAnomalyModel):
 
         seqs = []
         for i in range(n - self.seq_len + 1):
-            seqs.append(X[i: i + self.seq_len])
+            seqs.append(X[i : i + self.seq_len])
 
         return torch.tensor(np.stack(seqs), dtype=torch.float32)
 
@@ -166,7 +170,7 @@ class LSTMAutoencoder(BaseAnomalyModel):
     # Public interface
     # ------------------------------------------------------------------
 
-    def fit(self, X: np.ndarray) -> "LSTMAutoencoder":
+    def fit(self, X: np.ndarray) -> LSTMAutoencoder:
         torch = self._get_torch()
         import torch.nn as nn
         from torch.utils.data import DataLoader, TensorDataset
@@ -192,7 +196,8 @@ class LSTMAutoencoder(BaseAnomalyModel):
                 optimizer.step()
                 epoch_loss += loss.item()
             if (epoch + 1) % 5 == 0:
-                print(f"[LSTM-AE] epoch {epoch+1}/{self.n_epochs} loss={epoch_loss/len(loader):.6f}")
+                avg = epoch_loss / len(loader)
+                print(f"[LSTM-AE] epoch {epoch + 1}/{self.n_epochs} loss={avg:.6f}")
 
         # Calibrate score range on training data
         errors = self._reconstruction_errors(X)

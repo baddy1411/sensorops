@@ -8,11 +8,8 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
-import pytest
-
-from lineage.emitter import LineageEmitter
 from lineage.audit_log import AuditLogger
-
+from lineage.emitter import LineageEmitter
 
 # ---------------------------------------------------------------------------
 # LineageEmitter tests
@@ -24,8 +21,7 @@ class TestLineageEmitter:
         log = tmp_path / "lineage.jsonl"
         emitter = LineageEmitter(url="", fallback_log=str(log))
         run_id = emitter.emit_start("test_job", inputs=["input.csv"])
-        emitter.emit_complete(run_id, "test_job", inputs=["input.csv"],
-                              outputs=["output.parquet"])
+        emitter.emit_complete(run_id, "test_job", inputs=["input.csv"], outputs=["output.parquet"])
         lines = log.read_text().splitlines()
         assert len(lines) == 2
 
@@ -41,7 +37,7 @@ class TestLineageEmitter:
         emitter = LineageEmitter(url="", fallback_log=str(log))
         run_id = emitter.emit_start("my_job")
         emitter.emit_complete(run_id, "my_job", inputs=[], outputs=["out.parquet"])
-        records = [json.loads(l) for l in log.read_text().splitlines()]
+        records = [json.loads(line) for line in log.read_text().splitlines()]
         assert records[-1]["eventType"] == "COMPLETE"
 
     def test_fail_event_type(self, tmp_path):
@@ -56,7 +52,7 @@ class TestLineageEmitter:
         emitter = LineageEmitter(url="", fallback_log=str(log))
         run_id = emitter.emit_start("my_job")
         emitter.emit_complete(run_id, "my_job", [], [])
-        records = [json.loads(l) for l in log.read_text().splitlines()]
+        records = [json.loads(line) for line in log.read_text().splitlines()]
         assert records[0]["run"]["runId"] == records[1]["run"]["runId"] == run_id
 
     def test_track_ingest_writes_file_hash(self, tmp_path):
@@ -64,7 +60,7 @@ class TestLineageEmitter:
         emitter = LineageEmitter(url="", fallback_log=str(log))
         run_id = emitter.emit_start("ingest")
         emitter.track_ingest(run_id, csv_path="data/raw/ai4i2020.csv", row_count=500)
-        records = [json.loads(l) for l in log.read_text().splitlines()]
+        records = [json.loads(line) for line in log.read_text().splitlines()]
         complete = records[-1]
         assert complete["run"]["facets"].get("fileHash") is not None
 
@@ -81,7 +77,7 @@ class TestLineageEmitter:
             n_flagged=35,
             mlflow_run_id="run-xyz",
         )
-        records = [json.loads(l) for l in log.read_text().splitlines()]
+        records = [json.loads(line) for line in log.read_text().splitlines()]
         complete_facets = records[-1]["run"]["facets"]
         assert "euAiActAudit" in complete_facets
         audit = complete_facets["euAiActAudit"]
@@ -93,10 +89,13 @@ class TestLineageEmitter:
         log = tmp_path / "lineage.jsonl"
         emitter = LineageEmitter(url="", fallback_log=str(log))
         run_id = emitter.emit_start("features")
-        emitter.emit_complete(run_id, "features",
-                              inputs=["data/processed/raw_events.parquet"],
-                              outputs=["data/processed/features.parquet"])
-        records = [json.loads(l) for l in log.read_text().splitlines()]
+        emitter.emit_complete(
+            run_id,
+            "features",
+            inputs=["data/processed/raw_events.parquet"],
+            outputs=["data/processed/features.parquet"],
+        )
+        records = [json.loads(line) for line in log.read_text().splitlines()]
         complete = records[-1]
         # raw_events input should have schema facet
         input_facets = complete["inputs"][0].get("facets", {})
@@ -120,7 +119,7 @@ class TestAuditLogger:
         logger = AuditLogger(log_path=log_path)
         for i in range(5):
             logger.log_prediction(f"M{i}", anomaly_score=0.5, is_anomaly=False)
-        records = [json.loads(l) for l in Path(log_path).read_text().splitlines()]
+        records = [json.loads(line) for line in Path(log_path).read_text().splitlines()]
         seqs = [r["seq"] for r in records]
         assert seqs == list(range(1, 6))
 
@@ -184,5 +183,5 @@ class TestAuditLogger:
         logger2 = AuditLogger(log_path=log_path)
         logger2.log_prediction("M3", 0.7, True)
 
-        records = [json.loads(l) for l in Path(log_path).read_text().splitlines()]
+        records = [json.loads(line) for line in Path(log_path).read_text().splitlines()]
         assert records[-1]["seq"] == 3

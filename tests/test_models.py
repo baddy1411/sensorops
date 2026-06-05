@@ -17,7 +17,6 @@ from models.base import BaseAnomalyModel
 from models.isolation_forest import IsolationForestModel
 from models.registry import compare_models
 
-
 # ---------------------------------------------------------------------------
 # Shared fixture
 # ---------------------------------------------------------------------------
@@ -76,8 +75,7 @@ class TestIsolationForest:
         normal_mean = model.score(X_normal).mean()
         anomaly_mean = model.score(X_anomaly).mean()
         assert anomaly_mean > normal_mean, (
-            f"Anomaly mean score {anomaly_mean:.3f} should exceed "
-            f"normal mean {normal_mean:.3f}"
+            f"Anomaly mean score {anomaly_mean:.3f} should exceed normal mean {normal_mean:.3f}"
         )
 
     def test_predict_returns_binary(self):
@@ -129,9 +127,9 @@ class TestLSTMAutoencoder:
 
     def test_fit_and_score(self):
         from models.lstm_autoencoder import LSTMAutoencoder
+
         model = LSTMAutoencoder(
-            input_size=13, hidden_size=16, num_layers=1,
-            seq_len=5, n_epochs=2, batch_size=32
+            input_size=13, hidden_size=16, num_layers=1, seq_len=5, n_epochs=2, batch_size=32
         )
         X = _normal_data(n=100)
         model.fit(X)
@@ -142,9 +140,9 @@ class TestLSTMAutoencoder:
 
     def test_anomalies_score_higher(self):
         from models.lstm_autoencoder import LSTMAutoencoder
+
         model = LSTMAutoencoder(
-            input_size=13, hidden_size=16, num_layers=1,
-            seq_len=5, n_epochs=3, batch_size=32
+            input_size=13, hidden_size=16, num_layers=1, seq_len=5, n_epochs=3, batch_size=32
         )
         X_normal = _normal_data(n=200)
         X_anomaly = _anomaly_data(n=50)
@@ -153,6 +151,7 @@ class TestLSTMAutoencoder:
 
     def test_get_params(self):
         from models.lstm_autoencoder import LSTMAutoencoder
+
         params = LSTMAutoencoder().get_params()
         assert params["model_name"] == "lstm_autoencoder"
 
@@ -169,6 +168,7 @@ class TestESN:
 
     def test_fit_and_score(self):
         from models.esn import EchoStateNetworkModel
+
         model = EchoStateNetworkModel(units=50, spectral_radius=0.9)
         X = _normal_data(n=200)
         model.fit(X)
@@ -179,6 +179,7 @@ class TestESN:
 
     def test_anomalies_score_higher(self):
         from models.esn import EchoStateNetworkModel
+
         model = EchoStateNetworkModel(units=50)
         X_normal = _normal_data(n=200)
         X_anomaly = _anomaly_data(n=50)
@@ -187,6 +188,7 @@ class TestESN:
 
     def test_get_params_has_thesis_reference(self):
         from models.esn import EchoStateNetworkModel
+
         params = EchoStateNetworkModel().get_params()
         assert "thesis_reference" in params
         assert "NRMSE" in params["thesis_reference"]

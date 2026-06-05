@@ -59,8 +59,7 @@ def raw_events(context, csv_dataset: CsvDatasetResource) -> pd.DataFrame:
     )
 
     context.log.info(
-        f"raw_events: {len(df)} rows loaded, "
-        f"{failure_count} failures ({failure_rate:.1%})"
+        f"raw_events: {len(df)} rows loaded, {failure_count} failures ({failure_rate:.1%})"
     )
     return df
 

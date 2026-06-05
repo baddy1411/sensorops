@@ -12,11 +12,10 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from llm.rag import RAGStore, FAILURE_MODE_CARDS, _chunk_text
-from llm.prompts import build_query_prompt, build_incident_report_prompt
 from llm.incident_reporter import IncidentReport, IncidentReporter
+from llm.prompts import build_incident_report_prompt, build_query_prompt
 from llm.query_engine import QueryEngine, QueryResult
-
+from llm.rag import FAILURE_MODE_CARDS, RAGStore, _chunk_text
 
 # ---------------------------------------------------------------------------
 # Fixtures
@@ -86,8 +85,10 @@ class TestRAGStore:
 
     def test_index_manual_from_file(self, in_memory_store, tmp_path):
         manual = tmp_path / "manual.txt"
-        manual.write_text("This is a maintenance manual. Check coolant flow regularly. "
-                          "Replace tool every 200 minutes. " * 20)
+        manual.write_text(
+            "This is a maintenance manual. Check coolant flow regularly. "
+            "Replace tool every 200 minutes. " * 20
+        )
         n = in_memory_store.index_manual_directory(str(tmp_path))
         assert n > 0
         assert in_memory_store.stats["manuals"] > 0
@@ -183,7 +184,9 @@ class TestQueryEngine:
         in_memory_store.index_alert(SAMPLE_ALERT)
         with patch("llm.query_engine.OpenAI") as mock_cls:
             mock_client = mock_cls.return_value
-            mock_client.chat.completions.create.return_value = _mock_deepseek_response("Analysis done.")
+            mock_client.chat.completions.create.return_value = _mock_deepseek_response(
+                "Analysis done."
+            )
             engine = QueryEngine(rag_store=in_memory_store, api_key="fake-key")
             result = engine.query("What happened?", machine_id="M14860")
 
@@ -204,30 +207,34 @@ class TestQueryEngine:
 # ---------------------------------------------------------------------------
 
 
-VALID_REPORT_JSON = json.dumps({
-    "incident_id": "alert-001",
-    "machine_id": "M14860",
-    "timestamp": "2024-01-15T08:32:10Z",
-    "severity": "HIGH",
-    "probable_cause": "Insufficient heat dissipation at low RPM caused thermal stress.",
-    "evidence": ["temp_delta=7.8 K (below 8.6 K threshold)", "RPM=1320 (below 1380 threshold)"],
-    "recommended_actions": [
-        {"priority": 1, "action": "Check coolant flow rate", "timeframe": "immediate"},
-        {"priority": 2, "action": "Inspect heat exchanger", "timeframe": "within 4h"},
-    ],
-    "affected_components": ["coolant system", "spindle bearing"],
-    "model_version": "IF-v1",
-    "dataset_hash": "abc123",
-    "confidence": "HIGH",
-    "notes": "Pattern consistent with HDF failure mode.",
-})
+VALID_REPORT_JSON = json.dumps(
+    {
+        "incident_id": "alert-001",
+        "machine_id": "M14860",
+        "timestamp": "2024-01-15T08:32:10Z",
+        "severity": "HIGH",
+        "probable_cause": "Insufficient heat dissipation at low RPM caused thermal stress.",
+        "evidence": ["temp_delta=7.8 K (below 8.6 K threshold)", "RPM=1320 (below 1380 threshold)"],
+        "recommended_actions": [
+            {"priority": 1, "action": "Check coolant flow rate", "timeframe": "immediate"},
+            {"priority": 2, "action": "Inspect heat exchanger", "timeframe": "within 4h"},
+        ],
+        "affected_components": ["coolant system", "spindle bearing"],
+        "model_version": "IF-v1",
+        "dataset_hash": "abc123",
+        "confidence": "HIGH",
+        "notes": "Pattern consistent with HDF failure mode.",
+    }
+)
 
 
 class TestIncidentReporter:
     def test_generate_returns_incident_report(self, in_memory_store):
         with patch("llm.incident_reporter.OpenAI") as mock_cls:
             mock_client = mock_cls.return_value
-            mock_client.chat.completions.create.return_value = _mock_deepseek_response(VALID_REPORT_JSON)
+            mock_client.chat.completions.create.return_value = _mock_deepseek_response(
+                VALID_REPORT_JSON
+            )
             reporter = IncidentReporter(rag_store=in_memory_store, api_key="fake-key")
             report = reporter.generate(SAMPLE_ALERT, model_version="IF-v1")
 
@@ -240,7 +247,9 @@ class TestIncidentReporter:
     def test_report_has_audit_fields(self, in_memory_store):
         with patch("llm.incident_reporter.OpenAI") as mock_cls:
             mock_client = mock_cls.return_value
-            mock_client.chat.completions.create.return_value = _mock_deepseek_response(VALID_REPORT_JSON)
+            mock_client.chat.completions.create.return_value = _mock_deepseek_response(
+                VALID_REPORT_JSON
+            )
             reporter = IncidentReporter(rag_store=in_memory_store, api_key="fake-key")
             report = reporter.generate(SAMPLE_ALERT, model_version="IF-v1")
 
