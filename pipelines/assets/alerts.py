@@ -31,9 +31,9 @@ from typing import Literal
 
 import httpx
 import pandas as pd
-from dagster import asset
 from pydantic import BaseModel
 
+from pipelines.dagster_compat import asset
 from pipelines.resources import AlertSinkResource
 
 SeverityLevel = Literal["LOW", "MEDIUM", "HIGH", "CRITICAL"]

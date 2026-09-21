@@ -18,13 +18,13 @@ Output            : dict with model names → metrics + winner
 from __future__ import annotations
 
 import pandas as pd
-from dagster import asset
 
 from models.esn import EchoStateNetworkModel
 from models.isolation_forest import IsolationForestModel
 from models.lstm_autoencoder import LSTMAutoencoder
 from models.registry import log_model_run, promote_to_staging
 from pipelines.assets.anomaly_scores import MODEL_FEATURES
+from pipelines.dagster_compat import asset
 from pipelines.resources import MlflowResource
 
 # Train/test split ratio (time-ordered — no random shuffle for time-series)

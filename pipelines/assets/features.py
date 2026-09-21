@@ -27,8 +27,9 @@ from pathlib import Path
 
 import numpy as np
 import pandas as pd
-from dagster import asset
 from sklearn.preprocessing import StandardScaler
+
+from pipelines.dagster_compat import asset
 
 OUTPUT_PATH = Path("data/processed/features.parquet")
 
@@ -96,8 +97,14 @@ def feature_matrix(
     df[all_numeric] = scaler.fit_transform(df[all_numeric])
 
     # ── 4. Persist ───────────────────────────────────────────────────────────
-    OUTPUT_PATH.parent.mkdir(parents=True, exist_ok=True)
-    df.to_parquet(OUTPUT_PATH, index=False)
+    # Best-effort: the lean serving image may lack pyarrow or mount data/
+    # read-only, so a failed write must not take down startup — the
+    # DataFrame itself is the result.
+    try:
+        OUTPUT_PATH.parent.mkdir(parents=True, exist_ok=True)
+        df.to_parquet(OUTPUT_PATH, index=False)
+    except Exception as exc:  # noqa: BLE001 - persist is best-effort
+        context.log.info(f"feature_matrix: skipping parquet persist ({exc})")
 
     context.add_output_metadata(
         {

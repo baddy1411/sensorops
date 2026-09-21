@@ -23,9 +23,17 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI, HTTPException, Request, status
 from fastapi.middleware.cors import CORSMiddleware
 
-from llm.api import router as llm_router
+# The LLM stack (openai/chromadb) is optional: the lean serving image
+# (serving/Dockerfile) omits it, so the /api/v1/llm/* routes are registered
+# only when the imports succeed.
+try:
+    from llm.api import router as llm_router
+except ImportError as _llm_exc:
+    llm_router = None
+    print(f"[app] LLM routes disabled (optional dependency missing: {_llm_exc})")
+
 from serving.feature_pipeline import batch_to_matrix, reading_to_vector
-from serving.model_loader import areload_model, get_model, init_model, reload_model
+from serving.model_loader import areload_model, get_model, init_model
 from serving.schemas import (
     BatchPredictRequest,
     BatchPredictResponse,
@@ -70,7 +78,8 @@ app = FastAPI(
     redoc_url="/redoc",
 )
 
-app.include_router(llm_router)
+if llm_router is not None:
+    app.include_router(llm_router)
 
 app.add_middleware(
     CORSMiddleware,

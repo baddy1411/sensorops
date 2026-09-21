@@ -28,9 +28,9 @@ import mlflow
 import mlflow.sklearn
 import numpy as np
 import pandas as pd
-from dagster import asset
 from sklearn.ensemble import IsolationForest
 
+from pipelines.dagster_compat import asset
 from pipelines.resources import MlflowResource
 
 OUTPUT_PATH = Path("data/processed/anomaly_scores.parquet")

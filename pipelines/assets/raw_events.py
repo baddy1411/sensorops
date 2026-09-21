@@ -15,10 +15,10 @@ import asyncio
 from pathlib import Path
 
 import pandas as pd
-from dagster import asset
 
 from data.adapter import CsvReplayAdapter, ReplayConfig
 from data.schema import SensorEvent
+from pipelines.dagster_compat import asset
 from pipelines.resources import CsvDatasetResource
 
 OUTPUT_PATH = Path("data/processed/raw_events.parquet")

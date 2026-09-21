@@ -73,9 +73,7 @@ def reload_model() -> BaseAnomalyModel:
     global _model
     with _lock:
         if _running_loop():
-            raise RuntimeError(
-                "await serving.model_loader.areload_model() from async code"
-            )
+            raise RuntimeError("await serving.model_loader.areload_model() from async code")
         _model = asyncio.run(_load_model())
     return _model
 
@@ -118,11 +116,13 @@ async def _train_fallback_model() -> IsolationForestModel:
     csv_path = os.getenv("SENSOROPS_CSV_PATH", "data/raw/ai4i2020.csv")
 
     if Path(csv_path).exists():
-        from dagster import build_asset_context
-
+        # NB: dagster is optional — the lean serving image uses the no-op
+        # shims from pipelines.dagster_compat so the asset *functions* stay
+        # callable without the orchestrator installed.
         from data.adapter import CsvReplayAdapter, ReplayConfig
         from pipelines.assets.anomaly_scores import MODEL_FEATURES
         from pipelines.assets.features import feature_matrix as _feat_fn
+        from pipelines.dagster_compat import build_asset_context
 
         adapter = CsvReplayAdapter(csv_path=csv_path, config=ReplayConfig(event_interval_s=0.0))
 

@@ -14,8 +14,9 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from dagster import ConfigurableResource
 from pydantic import Field
+
+from pipelines.dagster_compat import ConfigurableResource
 
 
 class CsvDatasetResource(ConfigurableResource):
