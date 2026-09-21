@@ -211,7 +211,7 @@ uvicorn serving.app:app --reload --port 8000
 # Full stack (API + MLflow + Dagster + Postgres + MinIO)
 docker compose -f infra/docker-compose.yml up
 # → Dagster UI:  http://localhost:3000
-# → MLflow UI:   http://localhost:5000
+# → MLflow UI:   http://localhost:5001
 # → API docs:    http://localhost:8000/docs
 ```
 
