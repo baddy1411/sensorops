@@ -4,7 +4,7 @@ version: "3.9"
 #
 # Services:
 #   serving      — FastAPI inference API           http://localhost:8000
-#   mlflow       — MLflow tracking + registry       http://localhost:5000
+#   mlflow       — MLflow tracking + registry       http://localhost:5001
 #   dagster      — Dagster orchestration UI         http://localhost:3000
 #   postgres     — Dagster run storage + pgvector   localhost:5432
 #   minio        — S3-compatible artifact store     http://localhost:9000
@@ -69,7 +69,7 @@ services:
         --host 0.0.0.0
         --port 5000
     ports:
-      - "5000:5000"
+      - "5001:5000"
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:5000/health"]
       interval: 15s
