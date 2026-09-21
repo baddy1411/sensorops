@@ -63,11 +63,12 @@ services:
       AWS_ACCESS_KEY_ID: minioadmin
       AWS_SECRET_ACCESS_KEY: minioadmin
     command: >
+      sh -c "pip install --quiet --no-cache-dir psycopg2-binary &&
       mlflow server
         --backend-store-uri postgresql://sensorops:sensorops@postgres:5432/sensorops
         --artifacts-destination s3://mlflow-artifacts/
         --host 0.0.0.0
-        --port 5000
+        --port 5000"
     ports:
       - "5001:5000"
     healthcheck:
