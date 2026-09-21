@@ -4,10 +4,10 @@ An LLM copilot for industrial predictive maintenance: stream sensor telemetry, s
 
 [![CI](https://github.com/baddy1411/sensorops/actions/workflows/ci.yml/badge.svg)](https://github.com/baddy1411/sensorops/actions/workflows/ci.yml)
 [![Python](https://img.shields.io/badge/Python-3.11%2B-3776ab?style=flat-square&logo=python&logoColor=white)](https://python.org)
-[![Tests](https://img.shields.io/badge/Tests-90%2B%20passing-3fb950?style=flat-square)](#testing)
+[![Tests](https://img.shields.io/badge/Tests-93%20passing-3fb950?style=flat-square)](#testing)
 [![License](https://img.shields.io/badge/License-MIT-yellow?style=flat-square)](#license)
 
-![SensorOps copilot — asking why a machine triggered an alert](docs/images/hero.png)
+![SensorOps](docs/images/hero.png)
 
 I built SensorOps to learn how the pieces of a real ML system fit together — data ingestion, model training and serving, an LLM assistant on top, and an audit trail that would hold up in a regulated industry. It runs on the [AI4I 2020 predictive maintenance dataset](https://archive.ics.uci.edu/dataset/601) and is aimed at the kind of manufacturing environment you find all over Germany.
 
@@ -30,7 +30,7 @@ curl -X POST http://localhost:8000/api/v1/llm/query \
 }
 ```
 
-No API key? Everything except the LLM calls — ingestion, models, serving, all 90+ tests — runs fully offline. The LLM features need a DeepSeek API key (`DEEPSEEK_API_KEY` in `.env`).
+No API key? Everything except the LLM calls — ingestion, models, serving, all 93 tests — runs fully offline. The LLM features need a DeepSeek API key (`DEEPSEEK_API_KEY` in `.env`).
 
 ## What's inside
 
@@ -68,13 +68,15 @@ The honest read: Isolation Forest dominates this kind of tabular snapshot scorin
 
 ![Anomaly scores over 2,000 events from the real Isolation Forest model](docs/images/anomaly_scoring.png)
 
-## Streaming inference
+## The API, live
 
-What a run looks like — replay the dataset through the API, watch scores, alerts, audit entries, and the incident reporter kick in:
+Screenshots from the app running straight off this repo — no mockups. Swagger UI served at `/docs`, with the LLM query endpoint expanded:
 
-![Streaming inference console](docs/images/alerts_console.png)
+![Live Swagger UI served by the repo's FastAPI app](docs/images/api_docs.png)
 
-*Simulated output — the log format matches `serving/app.py` and `lineage/audit_log.py`.*
+And a real `/predict` response for a worn machine (M14860, tool wear 212 min, vibration 0.42 m/s²):
+
+![Real /predict response from the live FastAPI app](docs/images/predict_response.png)
 
 ## Data
 
@@ -190,7 +192,7 @@ Download [AI4I 2020](https://archive.ics.uci.edu/dataset/601) and place it at `d
 **4. Run the tests**
 
 ```bash
-pytest          # 90+ tests, all offline
+pytest          # 93 tests, all offline
 ```
 
 **5. Preview the stream**
@@ -237,10 +239,10 @@ curl -X POST http://localhost:8000/api/v1/predict \
       "machine_id": "M14860",
       "air_temperature_k": 298.1,
       "process_temperature_k": 308.6,
-      "rotational_speed_rpm": 1551,
+      "rotational_speed_rpm": 1551.0,
       "torque_nm": 42.8,
-      "tool_wear_min": 0,
-      "vibration_ms2": 0.15
+      "tool_wear_min": 212.0,
+      "vibration_ms2": 0.42
     }
   }'
 ```
@@ -249,15 +251,17 @@ curl -X POST http://localhost:8000/api/v1/predict \
 {
   "result": {
     "machine_id": "M14860",
-    "anomaly_score": 0.1823,
-    "is_anomaly": false,
-    "severity": "LOW",
+    "anomaly_score": 0.799,
+    "is_anomaly": true,
+    "severity": "HIGH",
     "threshold": 0.6
   },
   "model_name": "isolation_forest",
   "api_version": "v1"
 }
 ```
+
+(Real response from the live API, captured while writing this README.)
 
 ## Project structure
 
@@ -296,7 +300,7 @@ sensorops/
 │   └── dagster_resource.py # Dagster-injectable resource
 ├── infra/
 │   └── docker-compose.yml  # Full stack (API+MLflow+Dagster+Postgres+MinIO)
-└── tests/                  # 90+ tests, all pass offline
+└── tests/                  # 93 tests, all pass offline
 ```
 
 ## Testing
@@ -311,7 +315,9 @@ tests/
 └── test_lineage.py    # OpenLineage events, EU AI Act chain, tamper detection
 ```
 
-All 90+ pass with no external services: the DeepSeek API is mocked, no MLflow server is needed, and ChromaDB runs in-memory.
+All 93 pass with no external services: the DeepSeek API is mocked, no MLflow server is needed, and ChromaDB runs in-memory.
+
+![pytest run — 93 passed](docs/images/tests.png)
 
 ## Roadmap
 
