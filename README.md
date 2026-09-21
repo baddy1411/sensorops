@@ -1,62 +1,31 @@
-<div align="center">
+# SensorOps
 
-# ⚙️ SensorOps
-
-### Industrial AI Platform for Predictive Maintenance
-
-*Industrie 4.0 · MLOps · LLM Integration · EU AI Act Compliance*
+Predictive maintenance for industrial machines: ingest sensor telemetry, detect anomalies with ML, and ask plain-language questions about what went wrong.
 
 [![Python](https://img.shields.io/badge/Python-3.11%2B-3776ab?style=flat-square&logo=python&logoColor=white)](https://python.org)
-[![Dagster](https://img.shields.io/badge/Dagster-1.13-purple?style=flat-square)](https://dagster.io)
-[![MLflow](https://img.shields.io/badge/MLflow-2.13-blue?style=flat-square)](https://mlflow.org)
-[![FastAPI](https://img.shields.io/badge/FastAPI-0.111-009688?style=flat-square&logo=fastapi&logoColor=white)](https://fastapi.tiangolo.com)
-[![DeepSeek](https://img.shields.io/badge/DeepSeek-V3-4353ff?style=flat-square)](https://platform.deepseek.com)
-[![Tests](https://img.shields.io/badge/Tests-90%20passing-3fb950?style=flat-square)](#)
+[![Tests](https://img.shields.io/badge/Tests-90%20passing-3fb950?style=flat-square)](#testing)
 [![License](https://img.shields.io/badge/License-MIT-yellow?style=flat-square)](#)
 
-<br/>
+I built SensorOps to learn how the pieces of a real ML system fit together — data ingestion, model training and serving, an LLM assistant on top, and an audit trail that would hold up in a regulated industry. It runs on the [AI4I 2020 predictive maintenance dataset](https://archive.ics.uci.edu/dataset/601) and is aimed at the kind of manufacturing environment you find all over Germany.
 
-> **SensorOps** is a production-grade predictive maintenance platform that ingests real-time sensor telemetry, detects anomalies using three ML models (Isolation Forest, LSTM Autoencoder, Echo State Network), and uses a DeepSeek-powered LLM agent to answer natural language questions like *"Why did machine M14860 trigger a HIGH severity alert?"*
+Ask it something like *"Why did machine M14860 trigger a HIGH severity alert?"* and it pulls from a RAG store (failure-mode reference cards, maintenance manuals, alert history) and answers with evidence, not vibes.
 
-</div>
-
----
-
-## 📐 Architecture
+## Architecture
 
 ![Architecture](docs/images/architecture.png)
 
-The platform is built in four independent layers that can each be deployed and scaled separately:
+The pipeline is split into four layers so each can be deployed and scaled on its own:
 
-| Layer | Components | Purpose |
-|-------|-----------|---------|
-| **Ingest** | CSV Replay Adapter, Pydantic schema | Stream sensor events with synthetic vibration channel |
-| **MLOps Core** | Dagster, MLflow, FastAPI, Docker | Orchestrate, track, serve, and version models |
-| **LLM Intelligence** | DeepSeek API, ChromaDB RAG | Answer NL queries, generate structured incident reports |
-| **Compliance** | OpenLineage, EU AI Act audit log | Full data lineage + tamper-evident prediction log |
+| Layer | Components | What it does |
+|-------|-----------|--------------|
+| **Ingest** | CSV replay adapter, Pydantic schema | Streams sensor events, adds a synthetic vibration channel |
+| **MLOps core** | Dagster, MLflow, FastAPI, Docker | Orchestrates training, tracks experiments, serves models |
+| **LLM** | DeepSeek API, ChromaDB RAG | Answers questions, writes structured incident reports |
+| **Compliance** | OpenLineage, hash-chained audit log | Records data lineage and every prediction, tamper-evident |
 
----
+## Data
 
-## 📊 Dataset & Signals
-
-<table>
-<tr>
-<td width="60%">
-
-**Primary dataset: [AI4I 2020 Predictive Maintenance](https://archive.ics.uci.edu/dataset/601)**
-- 10,000 machine telemetry snapshots
-- ~3.5% failure rate (imbalanced — handled via contamination param)
-- 5 failure subtypes: TWF · HDF · PWF · OSF · RNF
-- Features: air temp, process temp, RPM, torque, tool wear
-
-**Synthetic vibration channel** added on top:
-- Physics-based sinusoid at running speed frequency
-- 3× harmonic (bearing defect frequency)
-- Gaussian noise floor σ = 0.05 m/s²
-- Anomaly spike: 5–10× amplitude on failure events
-
-</td>
-<td width="40%">
+The base dataset is [AI4I 2020](https://archive.ics.uci.edu/dataset/601): 10,000 machine telemetry snapshots with a ~3.5% failure rate (imbalanced — the Isolation Forest's contamination parameter is set to match it) and 5 failure subtypes: TWF, HDF, PWF, OSF, RNF.
 
 | Feature | Range | Unit |
 |---------|-------|------|
@@ -67,21 +36,13 @@ The platform is built in four independent layers that can each be deployed and s
 | Tool wear | 0–253 | min |
 | Vibration | synthetic | m/s² |
 
-</td>
-</tr>
-</table>
-
 ![Dataset Overview](docs/images/dataset_overview.png)
 
----
+### Synthetic vibration channel
 
-## 🔬 Synthetic Vibration Channel
-
-One of the platform's differentiators is a physics-informed synthetic vibration signal added to every sensor event — enabling richer anomaly detection beyond the 5 original dataset features.
+The dataset only has 5 features, which is thin for anomaly detection. So I generate a physics-informed vibration signal for every sensor event:
 
 ![Vibration Channel](docs/images/vibration_channel.png)
-
-The signal is modelled as:
 
 ```
 v(t) = A_wear · sin(2π · f_rpm · t)           ← 1× running speed
@@ -90,36 +51,28 @@ v(t) = A_wear · sin(2π · f_rpm · t)           ← 1× running speed
       [+ 5–10× spike if machine_failure=True]  ← anomaly injection
 ```
 
-where `A_wear` grows linearly with tool wear (0.2 → 0.5 m/s²) to model degradation.
+`A_wear` grows linearly with tool wear (0.2 → 0.5 m/s²) to model gradual degradation. It's synthetic, but it behaves like a real vibration channel: harmonic content tied to RPM, a noise floor, and spikes when something fails.
 
----
+## Models
 
-## 🤖 Models
+Three anomaly detectors, each with a different philosophy:
 
-### Isolation Forest (baseline)
-Fully unsupervised. Contamination parameter set to 3.5% to match the known failure rate.  
-Trains in seconds, inference in microseconds. Scores calibrated to [0, 1] via min-max on training distribution.
+**Isolation Forest (baseline).** Fully unsupervised, contamination set to 3.5% to match the known failure rate. Trains in seconds, scores in microseconds. Scores are min-max calibrated to [0, 1] on the training distribution.
 
-### LSTM Autoencoder
-Learns the normal operating envelope via sequence reconstruction. Anomaly score = MSE reconstruction error, normalised to [0, 1]. Sequence length configurable (default: 30 timesteps).
+**LSTM Autoencoder.** Learns the normal operating envelope through sequence reconstruction; the anomaly score is the MSE reconstruction error, normalized to [0, 1]. Sequence length is configurable (default: 30 timesteps).
 
-### Echo State Network *(research-backed)*
-> **Thesis context:** The ESN model is directly motivated by the author's M.Sc. thesis on *Quantum Reservoir Computing vs classical Echo State Networks* for time-series forecasting (Hénon map benchmark).
->
-> **Result:** Tuned ESN achieves NRMSE **0.0111** vs QRC's **0.0130** at matched computational resources — ESN wins on both accuracy and efficiency.
-
-Anomaly scoring uses 1-step-ahead prediction error: the reservoir learns the normal attractor, and deviations indicate out-of-distribution behaviour.
+**Echo State Network.** This one comes from my M.Sc. thesis, where I compared *Quantum Reservoir Computing vs classical Echo State Networks* for time-series forecasting on the Hénon map benchmark. The tuned ESN reached NRMSE 0.0111 against QRC's 0.0130 at matched compute — so the reservoir approach had real empirical backing, not just novelty value. Implemented with [reservoirpy](https://reservoirpy.readthedocs.io) (spectral radius ρ=0.9, same as the thesis tuning). Anomaly scoring uses 1-step-ahead prediction error: the reservoir learns the normal attractor, and deviations from it mean something is off.
 
 ![Anomaly Scoring](docs/images/anomaly_scoring.png)
 
----
+## LLM query engine
 
-## 💬 LLM Query Engine
+Operators ask questions in plain language. The system retrieves context from a ChromaDB RAG store and calls DeepSeek to produce a grounded answer:
 
-Operators can ask natural language questions about machine health. The system retrieves relevant context from a ChromaDB RAG store (failure mode reference cards + maintenance manuals + alert history) and calls DeepSeek to generate grounded answers.
-
-```bash
+```
 POST /api/v1/llm/query
+Content-Type: application/json
+
 {
   "question": "Why did machine M14860 trigger a HIGH severity alert?",
   "machine_id": "M14860"
@@ -135,12 +88,13 @@ POST /api/v1/llm/query
 }
 ```
 
-### Incident Reports
+### Incident reports
 
-Every anomaly automatically generates a structured incident report:
+Every anomaly can be turned into a structured incident report:
 
-```bash
+```
 POST /api/v1/llm/report
+Content-Type: application/json
 ```
 
 ```json
@@ -164,11 +118,11 @@ POST /api/v1/llm/report
 }
 ```
 
----
+You need a DeepSeek API key for the LLM features (set `DEEPSEEK_API_KEY` in `.env`). Everything else — ingestion, models, serving, tests — runs fully offline.
 
-## 🔒 EU AI Act Compliance
+## EU AI Act audit log
 
-SensorOps implements Article 12-level audit logging with **hash-chained tamper detection**:
+Regulated industries need to prove what a model did and why. SensorOps keeps an Article 12-style audit log where every record is hash-chained to the previous one, so tampering is detectable:
 
 ```
 Record 1: { seq:1, event_type:PREDICTION, model_version:IF-v1, dataset_hash:a3f9..., prev_hash:"",        record_hash:"d4e7..." }
@@ -176,97 +130,90 @@ Record 2: { seq:2, event_type:ALERT,      model_version:IF-v1, dataset_hash:a3f9
 Record 3: { seq:3, event_type:PROMOTION,  requires_human_approval:true,              prev_hash:"b2a1...", record_hash:"f9c3..." }
 ```
 
-- Every prediction logs: model name, version, dataset SHA-256, input features, anomaly score
-- Every alert logs: severity, failure type, machine ID
-- Production promotion **requires human approval** — automated promotion is disabled by design
-- `verify_chain()` detects any tampering in O(n) time
+- Every prediction records the model name, version, dataset SHA-256, input features, and anomaly score.
+- Every alert records severity, failure type, and machine ID.
+- Promoting a model to production **requires human approval** — automated promotion is deliberately disabled.
+- `verify_chain()` walks the chain in O(n) and flags any tampering.
 
----
+Data lineage events are emitted in OpenLineage format alongside.
 
-## 🏗️ Project Structure
+## Project structure
 
 ```
 sensorops/
 ├── data/
-│   ├── adapter.py          ← CSV replay adapter (async generator + Kafka)
-│   ├── schema.py           ← SensorEvent Pydantic model
-│   └── vibration.py        ← Synthetic vibration channel generator
-│
+│   ├── adapter.py          # CSV replay adapter (async generator + Kafka)
+│   ├── schema.py           # SensorEvent Pydantic model
+│   └── vibration.py        # Synthetic vibration channel generator
 ├── models/
-│   ├── base.py             ← BaseAnomalyModel (fit/score/predict/evaluate)
-│   ├── isolation_forest.py ← IF wrapper
-│   ├── lstm_autoencoder.py ← LSTM-AE (PyTorch, optional)
-│   ├── esn.py              ← ESN (reservoirpy, thesis-backed)
-│   └── registry.py         ← MLflow promotion logic + quality gates
-│
+│   ├── base.py             # BaseAnomalyModel (fit/score/predict/evaluate)
+│   ├── isolation_forest.py # IF wrapper
+│   ├── lstm_autoencoder.py # LSTM-AE (PyTorch, optional)
+│   ├── esn.py              # ESN (reservoirpy)
+│   └── registry.py         # MLflow promotion logic + quality gates
 ├── pipelines/
-│   ├── assets/             ← raw_events → features → anomaly_scores → alerts
-│   ├── definitions.py      ← Dagster Definitions (entry point)
-│   ├── jobs.py             ← 3 jobs (full / ingest-only / score-and-alert)
-│   ├── schedules.py        ← hourly + daily cron
-│   └── sensors.py          ← file-watch sensor (triggers on CSV update)
-│
+│   ├── assets/             # raw_events → features → anomaly_scores → alerts
+│   ├── definitions.py      # Dagster Definitions (entry point)
+│   ├── jobs.py             # 3 jobs (full / ingest-only / score-and-alert)
+│   ├── schedules.py        # hourly + daily cron
+│   └── sensors.py          # file-watch sensor (triggers on CSV update)
 ├── serving/
-│   ├── app.py              ← FastAPI app (predict / batch / health / reload)
-│   ├── feature_pipeline.py ← Real-time feature engineering (no pandas)
-│   ├── model_loader.py     ← Thread-safe singleton loader
-│   └── Dockerfile          ← Slim Python 3.11, non-root, 2 workers
-│
+│   ├── app.py              # FastAPI app (predict / batch / health / reload)
+│   ├── feature_pipeline.py # Real-time feature engineering (no pandas)
+│   ├── model_loader.py     # Thread-safe singleton loader
+│   └── Dockerfile          # Slim Python 3.11, non-root, 2 workers
 ├── llm/
-│   ├── rag.py              ← ChromaDB RAG store (3 collections)
-│   ├── query_engine.py     ← DeepSeek NL query engine
-│   ├── incident_reporter.py← Structured incident report generator
-│   ├── prompts.py          ← All prompts in one place
-│   └── api.py              ← FastAPI router (/query /report /stream)
-│
+│   ├── rag.py              # ChromaDB RAG store (3 collections)
+│   ├── query_engine.py     # DeepSeek NL query engine
+│   ├── incident_reporter.py# Structured incident report generator
+│   ├── prompts.py          # All prompts in one place
+│   └── api.py              # FastAPI router (/query /report /stream)
 ├── lineage/
-│   ├── emitter.py          ← OpenLineage event emitter
-│   ├── audit_log.py        ← EU AI Act hash-chained audit log
-│   └── dagster_resource.py ← Dagster-injectable resource
-│
+│   ├── emitter.py          # OpenLineage event emitter
+│   ├── audit_log.py        # EU AI Act hash-chained audit log
+│   └── dagster_resource.py # Dagster-injectable resource
 ├── infra/
-│   └── docker-compose.yml  ← Full stack (API+MLflow+Dagster+Postgres+MinIO)
-│
-└── tests/                  ← 90 tests, all pass offline
+│   └── docker-compose.yml  # Full stack (API+MLflow+Dagster+Postgres+MinIO)
+└── tests/                  # 90 tests, all pass offline
 ```
 
----
+## Quick start
 
-## 🚀 Quick Start
-
-### 1. Clone & install
+**1. Clone and install**
 
 ```bash
-git clone https://github.com/YOUR_USERNAME/sensorops.git
+git clone https://github.com/baddy1411/sensorops.git
 cd sensorops
-python -m venv .venv && .venv\Scripts\activate   # Windows
+python -m venv .venv
+source .venv/bin/activate        # macOS / Linux
+# .venv\Scripts\activate         # Windows
 pip install -e ".[dev]"
 ```
 
-### 2. Configure
+**2. Configure**
 
 ```bash
 cp .env.example .env
-# Edit .env — add your DEEPSEEK_API_KEY
+# Edit .env and add your DEEPSEEK_API_KEY (only needed for the LLM features)
 ```
 
-### 3. Download dataset
+**3. Download the dataset**
 
-Download [AI4I 2020](https://archive.ics.uci.edu/dataset/601) and place at `data/raw/ai4i2020.csv`.
+Download [AI4I 2020](https://archive.ics.uci.edu/dataset/601) and place it at `data/raw/ai4i2020.csv`.
 
-### 4. Run tests
+**4. Run the tests**
 
 ```bash
 pytest          # 90 tests, all offline, ~25s
 ```
 
-### 5. Preview the stream
+**5. Preview the stream**
 
 ```bash
 python -m data.adapter --csv data/raw/ai4i2020.csv --limit 5
 ```
 
-### 6. Launch the full stack
+**6. Launch**
 
 ```bash
 # Serving API only
@@ -280,9 +227,7 @@ docker compose -f infra/docker-compose.yml up
 # → API docs:    http://localhost:8000/docs
 ```
 
----
-
-## 📡 API Reference
+## API reference
 
 | Method | Endpoint | Description |
 |--------|----------|-------------|
@@ -328,25 +273,21 @@ curl -X POST http://localhost:8000/api/v1/predict \
 }
 ```
 
----
-
-## 🧪 Testing
+## Testing
 
 ```
 tests/
-├── test_adapter.py    ← 10 tests  — CSV replay, schema validation, vibration physics
-├── test_models.py     ← 13 tests  — IF, LSTM (skip if no torch), ESN (skip if no reservoirpy)
-├── test_pipeline.py   ← 20 tests  — Dagster assets, feature engineering, alerting
-├── test_serving.py    ← 14 tests  — FastAPI endpoints, batch, health, schemas
-├── test_llm.py        ← 20 tests  — RAG, prompts, query engine, incident reporter (all mocked)
-└── test_lineage.py    ← 13 tests  — OL events, EU AI Act chain, tamper detection
+├── test_adapter.py    # 10 tests — CSV replay, schema validation, vibration physics
+├── test_models.py     # 13 tests — IF, LSTM (skipped if no torch), ESN (skipped if no reservoirpy)
+├── test_pipeline.py   # 20 tests — Dagster assets, feature engineering, alerting
+├── test_serving.py    # 14 tests — FastAPI endpoints, batch, health, schemas
+├── test_llm.py        # 20 tests — RAG, prompts, query engine, incident reporter (all mocked)
+└── test_lineage.py    # 13 tests — OpenLineage events, EU AI Act chain, tamper detection
 ```
 
-All 90 tests pass with no external services — Claude/DeepSeek API is mocked, no MLflow server needed, ChromaDB runs in-memory.
+All 90 pass with no external services: the DeepSeek API is mocked, no MLflow server is needed, and ChromaDB runs in-memory.
 
----
-
-## 🛠️ Tech Stack
+## Tech stack
 
 | Category | Technology |
 |----------|-----------|
@@ -362,21 +303,4 @@ All 90 tests pass with no external services — Claude/DeepSeek API is mocked, n
 
 ---
 
-## 📎 Research Background
-
-The **Echo State Network** model is backed by original research from the author's M.Sc. thesis:
-
-> *"Quantum Reservoir Computing vs Classical Echo State Networks for Time-Series Forecasting"*  
-> Benchmark: Hénon map attractor prediction  
-> **Result: Tuned ESN (NRMSE 0.0111) outperforms QRC (NRMSE 0.0130) at matched resources**
-
-This means the ESN choice in SensorOps has a legitimate empirical justification — it is not a toy model added for novelty. The reservoir implementation uses [reservoirpy](https://reservoirpy.readthedocs.io) with spectral radius ρ=0.9 (consistent with the thesis tuning).
-
----
-
-<div align="center">
-
-Built for the German manufacturing / Industrie 4.0 market  
-Portfolio project demonstrating production MLOps + LLM integration
-
-</div>
+A portfolio project built to practice production-style MLOps with an LLM layer on top, aimed at the German manufacturing / Industrie 4.0 market.
