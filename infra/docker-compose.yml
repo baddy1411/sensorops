@@ -72,10 +72,11 @@ services:
     ports:
       - "5001:5000"
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:5000/"]
+      test: ["CMD-SHELL", "python -c \"import urllib.request; urllib.request.urlopen('http://localhost:5000/')\""]
       interval: 15s
-      timeout: 5s
+      timeout: 10s
       retries: 5
+      start_period: 60s
 
   # ── SensorOps FastAPI serving ────────────────────────────────────────────
   serving:
