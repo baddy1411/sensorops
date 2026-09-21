@@ -25,7 +25,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from llm.api import router as llm_router
 from serving.feature_pipeline import batch_to_matrix, reading_to_vector
-from serving.model_loader import get_model, reload_model
+from serving.model_loader import areload_model, get_model, init_model, reload_model
 from serving.schemas import (
     BatchPredictRequest,
     BatchPredictResponse,
@@ -47,7 +47,7 @@ API_VERSION = "1.0.0"
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     print("[app] warming up model...")
-    get_model()
+    await init_model()
     print(f"[app] model ready: {get_model().model_name}")
     yield
     print("[app] shutting down")
@@ -220,12 +220,12 @@ def predict_batch(request: BatchPredictRequest) -> BatchPredictResponse:
     tags=["ops"],
     summary="Hot-reload the model from MLflow or disk",
 )
-def model_reload() -> dict:
+async def model_reload() -> dict:
     """
     Reloads the model without restarting the server.
     Useful after promoting a new version to Production in MLflow.
     """
-    model = reload_model()
+    model = await areload_model()
     return {
         "status": "reloaded",
         "model_name": model.model_name,
